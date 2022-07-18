@@ -1,13 +1,21 @@
-const httpServer = require("http").createServer();
-const io = require("socket.io")(httpServer, {
-  cors: {
-    origin: "*",
-  },
+const express = require('express');
+const app = express();
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(server,  {
+    cors: {
+      origin: "*"
+    }
 });
 
 const port = process.env.PORT || 1337;
 
 let users = []
+
+app.get('/', (req, res)=>{
+    res.send('Server is runing')
+})
 
 function findUserByUserId(userId){
     return users.find((user) => user.userId === userId) || false;
@@ -44,6 +52,6 @@ io.on('connection', (socket) => {
     });
 });
 
-httpServer.listen(port, () => {
+server.listen(port, () => {
     console.log('listening on *:1337');
 });
