@@ -1,11 +1,11 @@
 const httpServer = require("http").createServer();
 const io = require("socket.io")(httpServer, {
   cors: {
-    origin: "https://whatsapp-ivory.vercel.app/",
+    origin: "*",
   },
 });
 
-const port = 1337;
+const port = process.env.PORT || 1337;
 
 let users = []
 
@@ -18,6 +18,7 @@ function userAlreadyExists(userId){
 }
 
 io.on('connection', (socket) => {
+
     socket.on('newUser', function(userId){
         const userExistance = userAlreadyExists(userId);
         if(!userExistance){
@@ -27,31 +28,19 @@ io.on('connection', (socket) => {
             })
             console.log(users)
         }
-        
-    })
+        io.emit('online', users)
+    })    
     
     socket.on('new message', (recipientUserId)=>{
         const recipientUser = findUserByUserId(recipientUserId)
         if(!recipientUser) return
         
-        io.to(recipientUser.socketId).emit('return message',{ message: 'new_message' });
+        socket.to(recipientUser.socketId).emit('return message', 'new_message')
     })
 
-    
-    socket.on('get user', ({userId, recipientUserId})=>{
-        console.log('get user')
-        const user = findUserByUserId(userId);
-        const recipientUser = findUserByUserId(recipientUserId);
-        if(recipientUser){
-            io.to(user.socketId).emit('myUser', {status: true})
-        }else{
-            io.to(user.socketId).emit('myUser', {status: false})
-        }
-    })
-    
     socket.on("disconnect", async () => {
         users = users.filter(user=> user.socketId !== socket.id)
-        
+        io.emit('online', users)
     });
 });
 
