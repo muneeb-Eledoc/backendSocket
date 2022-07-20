@@ -8,6 +8,13 @@ const io = new Server(server,  {
       origin: "*"
     }
 });
+var admin = require("firebase-admin");
+var serviceAccount = require("./accessKey.json");
+const { FieldValue } = require('firebase-admin/firestore');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+const db = admin.firestore()
 
 const port = process.env.PORT || 1337;
 
@@ -21,8 +28,17 @@ function findUserByUserId(userId){
     return users.find((user) => user.userId === userId) || false;
 }
 
+function findUserBySocketId(socketId){
+    return users.find((user) => user.socketId === socketId) || false;
+}
+
 function userAlreadyExists(userId){
     return users.some((user)=> user.userId === userId)
+}
+
+async function updateLastSeen(userId){
+    const userRef = db.collection('users').doc(userId);
+    await userRef.update({lastSeen: FieldValue.serverTimestamp()});
 }
 
 io.on('connection', (socket) => {
@@ -46,7 +62,21 @@ io.on('connection', (socket) => {
         socket.to(recipientUser.socketId).emit('return message', 'new_message')
     })
 
+    socket.on('typing', ({currentUserId, recipientUserId})=>{
+        const recipientUser = findUserByUserId(recipientUserId)
+        io.to(recipientUser.socketId).emit('istyping', {typing: true})
+    })
+
+    socket.on('stop typing', ({currentUserId, recipientUserId})=>{
+        const recipientUser = findUserByUserId(recipientUserId)
+        io.to(recipientUser.socketId).emit('istyping', {typing: false})
+    })
+
     socket.on("disconnect", async () => {
+        const disUser = findUserBySocketId(socket.id)
+        if(disUser.userId){
+            updateLastSeen(disUser.userId)
+        }
         users = users.filter(user=> user.socketId !== socket.id)
         io.emit('online', users)
     });
